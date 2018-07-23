@@ -11,41 +11,53 @@ app.get('/',function(req,res) {
   res.json({'status' : 'success'});
 });
 
-app.get('/translate/:lang',function(req,res){
+app.get('/translate/:clang/:slang?',function(req,res){
   myCache.keys(function(err,keys){
         console.log(keys);
       })
   let text = req.query.text;
-  let lang = req.params.lang;
-  let cache_key = lang + '_' + text;
+  let slang = req.params.slang;
+  let clang = req.params.clang;
+  let cache_key = clang + '_' + text;
   myCache.get(cache_key, function(err,value){
     if(err){
       res.status(500).json({text:'Sorry!! We Encountered an Error',error : err});
     }else if(value){
       res.json({status:'success',translatedText:value});
     }else{
-      let url = 'https://translation.googleapis.com/language/translate/v2?target='+lang+'&key='+config.google_api_key+'&q='+text;
+      let url;
+      if(slang){
+        url = 'https://translation.googleapis.com/language/translate/v2?target=' + clang + '&source=' + slang + '&key=' + config.google_api_key + '&q=' + text;
+      }
+      else{
+        url = 'https://translation.googleapis.com/language/translate/v2?target=' + clang + '&key=' + config.google_api_key + '&q=' + text;
+      }
       request(url, function (error, response, body) {
         if (!error && response.statusCode == 200) {
           data = JSON.parse(body);
-          console.log(data)
           res.json({status:'success',translatedText: data.data.translations[0].translatedText});
           setCache(cache_key,data.data.translations[0].translatedText);
-          generateCache(text);
+          generateCache(text, clang, slang);
         }
       });
     }
   })
 });
 
-function generateCache(text){
+function generateCache(text, clang, slang){
   languages = ['kn','hi']
   languages.forEach(function(item){
-    cache_key = item+'_'+text;
+    cache_key = item + '_' + text;
     myCache.get(cache_key,function(err,value){
       if(!err){
         if(!value){
-          let url = 'https://translation.googleapis.com/language/translate/v2?target='+item+'&key='+config.google_api_key+'&q='+text;
+          let url;
+          if(slang !== undefined){
+            url = 'https://translation.googleapis.com/language/translate/v2?target=' + clang + '&source=' + slang + '&key=' + config.google_api_key + '&q=' + text;
+          }
+          else{
+            url = 'https://translation.googleapis.com/language/translate/v2?target=' + clang + '&key=' + config.google_api_key + '&q=' + text;
+          }
           request(url, function(){
             var key = cache_key;
             return function (error, response, body) {
